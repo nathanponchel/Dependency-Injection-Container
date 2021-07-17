@@ -2,6 +2,7 @@
 namespace Tests;
 
 use App\Container;
+use App\Definition;
 
 require_once '../vendor/autoload.php';
 
@@ -10,7 +11,7 @@ $dic = new Container();
 
 echo '<pre>';
 
-var_dump($dic->get('Tests\User'));
-var_dump($dic->get('Tests\Repertory'));
+$definition = new Definition('\Tests\Repertory');
+var_dump($definition->getParameters());
 
 echo '</pre>';
