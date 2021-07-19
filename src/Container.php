@@ -8,42 +8,28 @@ use ReflectionParameter;
 
 class Container implements ContainerInterface {
 
+	use reflectionTrait;
+
 	private array $instances = [];
 	private array $aliases = [];
+	private array $definitions = [];
 
-	public function get(string $id): object
+
+	public function get(string $id)
 	{
-		// Instance not present in our container?
+		// Is instance present in container?
 		if(!$this->has($id))
 		{
-			$reflectedClass = new ReflectionClass($id);
+			$instance = $this->getDefinition($id)->newInstance($this);;
 
-			if($reflectedClass->isInterface())
+			if(!$this->getDefinition($id)->isShared())
 			{
-				return $this->get($this->aliases[$id]);  //Need to verify => isset($this->aliases[$id])
+				return $instance;
 			}
 
-			$constructor = $reflectedClass->getConstructor();
-			// Is constructor defined?
-			if(is_null($constructor))
-			{
-				// Create and store the instance without parameter
-				$this->instances[$id] = $reflectedClass->newInstance();
-			}else
-			{
-				// We're looking for the constructor arguments
-				$parameters = $constructor->getParameters();
-
-				//Create and store the instance with recursion callback to resolve all "sub-"dependencies
-				$this->instances[$id] = $reflectedClass->newInstanceArgs(
-					array_map(
-						fn(ReflectionParameter $parameter) => $this->get($this->getClass($parameter)->getName()),
-						$parameters
-					)
-				);
-			}
+			$this->instances[$id] = $instance;
 		}
-		// Finally returning the previously created instance
+
 		return $this->instances[$id];
 	}
 
@@ -60,30 +46,66 @@ class Container implements ContainerInterface {
 	}
 
 
-	/**
-	 * In replacement of the native PHP getClass() method of the Reflection API witch is now deprecated
-	 *
-	 * @param ReflectionParameter $parameter
-	 * @return ReflectionClass|null
-	 * @throws \ReflectionException
-	 */
-	private function getClass(ReflectionParameter $parameter): ReflectionClass | null
+	private function register(string $id): self
 	{
-		return $parameter->getType() && ! $parameter->getType()->isBuiltin()
-			? new ReflectionClass($parameter->getType()->getName()) : null;
+		$reflectedClass = new ReflectionClass($id);
+
+		if($reflectedClass->isInterface())
+		{
+			$this->register($this->aliases[$id]);
+			$this->definitions[$id] = &$this->definitions[$this->aliases[$id]];
+
+			return $this;
+		}
+
+		$constructor = $reflectedClass->getConstructor();
+
+		$dependencies = [];
+
+		if($constructor)
+		{
+			$dependencies = array_map(
+				fn(ReflectionParameter $parameter) => $this->getDefinition($this->getClass($parameter)->getName()),
+				$constructor->getParameters()
+			);
+		}
+
+		$aliases = array_filter($this->aliases, fn(string $alias) => $alias === $id);
+
+		$definition = new Definition($id, true, $aliases, $dependencies);
+		$this->definitions[$id] = $definition;
+
+		return $this;
 	}
 
 
 	/**
-	 * Add aliases in our container to match between interface <=> class
+	 * Get definition set in container, if the definition is not present, we register it.
 	 *
-	 * @param string $id
-	 * @param string $targetClass
+	 * @param $id
+	 * @return Definition
+	 */
+	public function getDefinition($id): Definition
+	{
+		if(!isset($this->definitions[$id]))
+		{
+			$this->register($id);
+		}
+
+		return $this->definitions[$id];
+	}
+
+
+	/**
+	 * Set an alias to match between interface <=> class
+	 *
+	 * @param string $interfaceName
+	 * @param string $className
 	 * @return $this
 	 */
-	public function addAlias(string $id, string $targetClass): self
+	public function setAlias(string $interfaceName, string $className): self
 	{
-		$this->aliases[$id] = $targetClass;
+		$this->aliases[$interfaceName] = $className;
 
 		return $this;
 	}

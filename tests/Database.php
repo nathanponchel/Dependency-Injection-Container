@@ -2,7 +2,7 @@
 namespace Tests;
 
 
-class Database {
+class Database implements DatabaseInterface {
 
 	public function __construct()
 	{

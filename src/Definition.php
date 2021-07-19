@@ -1,67 +1,70 @@
 <?php
 namespace App;
 
+use Psr\Container\ContainerInterface;
 use ReflectionClass;
 use ReflectionParameter;
 
 
 class Definition {
 
+	use reflectionTrait;
+
 	private string $id;
-	private bool $isShared;
 	private ReflectionClass $reflectedClass;
-	private array $parameters = [];
+	private bool $shared = true;
+	private array $aliases = [];
+	private array $dependencies = [];
 
 
-	public function __construct(string $id, bool $isShared = true)
+
+	public function __construct(string $id, bool $shared = true, array $aliases = [], array $dependencies = [])
 	{
 		$this->id = $id;
-		$this->isShared = $isShared;
 		$this->reflectedClass = new ReflectionClass($id);
+		$this->shared = $shared;
+		$this->aliases = $aliases;
+		$this->dependencies = $dependencies;
+
 	}
 
 
-	public function isShared(): bool
-	{
-		return $this->isShared;
-	}
-
-
-	/**
-	 * Get all the constructor's parameters, null return if at least one of parameters is not a class
-	 *
-	 * @return array|null
-	 * @throws \ReflectionException
-	 */
-	public function getParameters(): array | null
+	public function newInstance(ContainerInterface $container): object
 	{
 		$constructor = $this->reflectedClass->getConstructor();
 
-		if(isset($constructor))
+		if(is_null($constructor))
 		{
-			foreach($constructor->getParameters() as $parameter)
-			{
-				if(is_null($this->getClass($parameter)))
-				{
-					return null;
-				}
-				$this->parameters[] = $this->getClass($parameter)->getName();
-			}
-			return $this->parameters;
+			// Create and store the instance without parameter
+			return $this->reflectedClass->newInstance();
 		}
+
+		// We're looking for the constructor arguments
+		$parameters = $constructor->getParameters();
+
+		//Create and store the instance with recursion callback to resolve all "sub-"dependencies
+		return  $this->reflectedClass->newInstanceArgs(
+			array_map(
+				fn(ReflectionParameter $parameter) => $container->get($this->getClass($parameter)->getName()),
+				$parameters
+			)
+		);
+	}
+
+	/**
+	 * @param bool $shared
+	 */
+	public function setShared(bool $shared): void
+	{
+		$this->shared = $shared;
 	}
 
 
 	/**
-	 * In replacement of the native PHP getClass() method of the Reflection API witch is now deprecated
-	 *
-	 * @param ReflectionParameter $parameter
-	 * @return ReflectionClass|null
-	 * @throws \ReflectionException
+	 * @return bool
 	 */
-	private function getClass(ReflectionParameter $parameter): ReflectionClass | null
+	public function isShared(): bool
 	{
-		return $parameter->getType() && ! $parameter->getType()->isBuiltin()
-			? new ReflectionClass($parameter->getType()->getName()) : null;
+		return $this->shared;
 	}
 }

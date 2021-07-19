@@ -1,16 +1,15 @@
 <?php
-
-
 namespace Tests;
 
 
 class Repertory {
 
 	private User $user;
+	private Database $db;
 
-	public function __construct(User $user, Database $db, Database $lol)
+	public function __construct(User $user, DatabaseInterface $db)
 	{
 		$this->user = $user;
-		$this->user->hello();
+		$this->db = $db;
 	}
 }
