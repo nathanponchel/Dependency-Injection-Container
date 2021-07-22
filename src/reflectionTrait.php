@@ -9,7 +9,7 @@ use ReflectionParameter;
 trait reflectionTrait {
 
 	/**
-	 * In replacement of the native PHP getClass() method of the Reflection API witch is now deprecated
+	 * In replacement of the native PHP getClass() method of the Reflection API witch is now deprecated (ver 8.)
 	 *
 	 * @param ReflectionParameter $parameter
 	 * @return ReflectionClass|null

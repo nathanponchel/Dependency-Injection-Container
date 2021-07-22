@@ -32,10 +32,12 @@ echo PHP_EOL;
 
 
 /*
- * Always same instance of class
+ * Always running same instance of class
  * */
-$repertory = $container->get(Repertory::class);
-var_dump($repertory);
+$repertory1 = $container->get(Repertory::class);
+$repertory2 = $container->get(Repertory::class);
+
+var_dump($repertory1, $repertory2);
 
 
 echo '</pre>';

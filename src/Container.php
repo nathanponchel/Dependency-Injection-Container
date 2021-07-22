@@ -3,7 +3,6 @@ namespace App;
 
 use Psr\Container\ContainerInterface;
 use ReflectionClass;
-use ReflectionParameter;
 
 
 class Container implements ContainerInterface {
@@ -15,15 +14,20 @@ class Container implements ContainerInterface {
 	private array $definitions = [];
 
 
+	/**
+	 * @param string $id
+	 * @return mixed|object
+	 * @throws \ReflectionException
+	 */
 	public function get(string $id)
 	{
-		// Is instance present in container?
 		if(!$this->has($id))
 		{
 			$instance = $this->getDefinition($id)->newInstance($this);;
 
 			if(!$this->getDefinition($id)->isShared())
 			{
+				// isShared = false => never store instance in container => always new instance
 				return $instance;
 			}
 
@@ -35,7 +39,7 @@ class Container implements ContainerInterface {
 
 
 	/**
-	 * Check if the passed instance is present in our container
+	 * Is instance present in our container?
 	 *
 	 * @param string $id
 	 * @return bool
@@ -46,44 +50,40 @@ class Container implements ContainerInterface {
 	}
 
 
+	/**
+	 * Create a new Definition, with some controls
+	 *
+	 * @param string $id
+	 * @return $this
+	 * @throws \ReflectionException
+	 */
 	private function register(string $id): self
 	{
 		$reflectedClass = new ReflectionClass($id);
 
 		if($reflectedClass->isInterface())
 		{
+			// The passed class is an interface, we register it with the corresponding alias.
 			$this->register($this->aliases[$id]);
 			$this->definitions[$id] = &$this->definitions[$this->aliases[$id]];
 
 			return $this;
 		}
 
-		$constructor = $reflectedClass->getConstructor();
-
-		$dependencies = [];
-
-		if($constructor)
-		{
-			$dependencies = array_map(
-				fn(ReflectionParameter $parameter) => $this->getDefinition($this->getClass($parameter)->getName()),
-				$constructor->getParameters()
-			);
-		}
-
 		$aliases = array_filter($this->aliases, fn(string $alias) => $alias === $id);
 
-		$definition = new Definition($id, true, $aliases, $dependencies);
-		$this->definitions[$id] = $definition;
+		$this->definitions[$id] = new Definition($id, true, $aliases);
 
 		return $this;
 	}
 
 
 	/**
-	 * Get definition set in container, if the definition is not present, we register it.
+	 * Get Definition previously set in container, if the Definition is not present, we create it.
 	 *
 	 * @param $id
 	 * @return Definition
+	 * @throws \ReflectionException
 	 */
 	public function getDefinition($id): Definition
 	{

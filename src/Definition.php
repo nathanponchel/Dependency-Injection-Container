@@ -14,21 +14,25 @@ class Definition {
 	private ReflectionClass $reflectedClass;
 	private bool $shared = true;
 	private array $aliases = [];
-	private array $dependencies = [];
 
 
 
-	public function __construct(string $id, bool $shared = true, array $aliases = [], array $dependencies = [])
+	public function __construct(string $id, bool $shared = true, array $aliases = [])
 	{
 		$this->id = $id;
 		$this->reflectedClass = new ReflectionClass($id);
 		$this->shared = $shared;
 		$this->aliases = $aliases;
-		$this->dependencies = $dependencies;
-
 	}
 
 
+	/**
+	 * Create an instance of a class, with possible constructors parameters, stored in the container
+	 *
+	 * @param ContainerInterface $container
+	 * @return object
+	 * @throws \ReflectionException
+	 */
 	public function newInstance(ContainerInterface $container): object
 	{
 		$constructor = $this->reflectedClass->getConstructor();
@@ -50,6 +54,7 @@ class Definition {
 			)
 		);
 	}
+
 
 	/**
 	 * @param bool $shared
